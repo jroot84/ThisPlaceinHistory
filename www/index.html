@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>This Place in History</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F1E9D8;
+    --paper-raised:#F8F2E4;
+    --ink:#2B211A;
+    --ink-soft:#5B4E40;
+    --brass:#A9793B;
+    --brass-dim:#C7A268;
+    --verdigris:#3E6259;
+    --rule:#C9B896;
+    --rust:#8B4A3D;
+    --shadow: 0 1px 0 rgba(43,33,26,0.08);
+    --radius: 3px;
+    --fs-scale: 1;
+    color-scheme: light;
+  }
+  [data-theme="dark"]{
+    --paper:#1C1712;
+    --paper-raised:#241E17;
+    --ink:#E8DFC9;
+    --ink-soft:#B7A98C;
+    --brass:#D3A25C;
+    --brass-dim:#8A6A3D;
+    --verdigris:#6FA396;
+    --rule:#4A3F30;
+    --rust:#C97A63;
+    color-scheme: dark;
+  }
+  [data-theme="sepia"]{
+    --paper:#E9DCC0;
+    --paper-raised:#F2E7CE;
+    --ink:#3A2C1A;
+    --ink-soft:#6B5636;
+    --brass:#8E6A2E;
+    --brass-dim:#B99C64;
+    --verdigris:#496258;
+    --rule:#D0BD91;
+    --rust:#7C4430;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Source Sans 3', sans-serif;
+    font-size:calc(16px * var(--fs-scale));
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y: none;
+  }
+  h1,h2,h3,.display{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+  .mono{
+    font-family:'JetBrains Mono', monospace;
+    letter-spacing:0.02em;
+  }
+  button{font-family:inherit;}
+  a{color:var(--verdigris);}
+
+  #app{
+    max-width:640px;
+    margin:0 auto;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    background:var(--paper);
+    border-bottom:1px solid var(--rule);
+    display:flex; align-items:center; gap:10px;
+    padding:14px 18px;
+  }
+  .topbar .brandmark{
+    width:30px;height:30px;flex:0 0 auto;
+    color:var(--brass);
+  }
+  .topbar .brandtext{
+    display:flex; flex-direction:column; line-height:1.05;
+  }
+  .topbar .brandtext .name{font-size:1.05rem; font-weight:600;}
+  .topbar .brandtext .tag{font-size:0.68rem; color:var(--ink-soft); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px;}
+  .back-btn{
+    background:none;border:none;cursor:pointer;
+    color:var(--ink); padding:6px; margin-right:2px;
+    display:none; align-items:center; justify-content:center;
+    border-radius:50%;
+  }
+  .back-btn.show{display:flex;}
+  .back-btn svg{width:22px;height:22px;}
+
+  main{flex:1; padding-bottom:86px;}
+  .view{display:none; animation:fade .25s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    padding:22px 18px 10px;
+    position:relative;
+  }
+  .hero .eyebrow{
+    font-size:0.7rem; text-transform:uppercase; letter-spacing:0.14em;
+    color:var(--brass); font-weight:600; display:flex; align-items:center; gap:8px;
+  }
+  .hero .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--verdigris); display:inline-block;}
+  .hero h1{font-size:1.9rem; margin-top:6px; line-height:1.08;}
+  .hero .sub{color:var(--ink-soft); margin-top:6px; font-size:0.92rem;}
+  .hero .coords{margin-top:10px; font-size:0.72rem; color:var(--ink-soft);}
+
+  .radius-row{
+    display:flex; align-items:center; gap:10px;
+    padding:0 18px 14px; flex-wrap:wrap;
+  }
+  .chip{
+    border:1px solid var(--rule); background:var(--paper-raised);
+    color:var(--ink-soft); padding:6px 12px; border-radius:20px;
+    font-size:0.78rem; cursor:pointer; transition:all .15s ease;
+  }
+  .chip.active{border-color:var(--brass); color:var(--ink); background:transparent; box-shadow:inset 0 0 0 1px var(--brass);}
+  .refresh-btn{
+    margin-left:auto; border:none; background:none; color:var(--verdigris);
+    display:flex; align-items:center; gap:5px; font-size:0.78rem; cursor:pointer; padding:6px 4px;
+  }
+  .refresh-btn svg{width:15px;height:15px;}
+
+  /* ---------- Status states ---------- */
+  .status-block{
+    margin:30px 18px; text-align:center; color:var(--ink-soft);
+  }
+  .status-block .icon{width:40px;height:40px; margin:0 auto 14px; color:var(--brass-dim);}
+  .status-block h3{font-size:1.1rem; color:var(--ink); margin-bottom:6px;}
+  .status-block p{font-size:0.88rem; max-width:340px; margin:0 auto; line-height:1.5;}
+  .status-block button{
+    margin-top:16px; background:var(--ink); color:var(--paper);
+    border:none; padding:10px 22px; border-radius:20px; font-size:0.85rem; cursor:pointer;
+  }
+  [data-theme="dark"] .status-block button, [data-theme="sepia"] .status-block button{background:var(--brass); color:var(--paper);}
+  .spinner{
+    width:26px;height:26px;border-radius:50%;
+    border:2.5px solid var(--rule); border-top-color:var(--brass);
+    animation:spin .8s linear infinite; margin:0 auto 14px;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ---------- Marker cards (signature element) ---------- */
+  .marker-list{padding:6px 18px 18px; display:flex; flex-direction:column; gap:14px;}
+  .marker{
+    position:relative;
+    background:var(--paper-raised);
+    border:1px solid var(--rule);
+    border-top:3px solid var(--brass);
+    border-radius:2px 2px 8px 8px;
+    padding:16px 16px 14px;
+    cursor:pointer;
+    text-align:left;
+    width:100%;
+    display:block;
+    color:inherit;
+    box-shadow:var(--shadow);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .marker:hover, .marker:focus-visible{
+    transform:translateY(-2px);
+    box-shadow:0 6px 14px rgba(43,33,26,0.12);
+    outline:none;
+  }
+  .marker .pin{
+    position:absolute; top:-9px; right:16px;
+    background:var(--verdigris); color:var(--paper);
+    font-size:0.66rem; padding:3px 8px; border-radius:10px;
+    font-family:'JetBrains Mono', monospace;
+  }
+  .marker .m-title{font-size:1.08rem; font-weight:600; padding-right:60px; line-height:1.25;}
+  .marker .m-meta{
+    margin-top:8px; display:flex; align-items:center; gap:6px;
+    font-size:0.72rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.06em;
+  }
+  .marker .m-meta svg{width:13px;height:13px;}
+  .marker .m-excerpt{margin-top:8px; font-size:0.85rem; color:var(--ink-soft); line-height:1.45;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+
+  /* ---------- Detail view ---------- */
+  .detail-hero-img{
+    width:100%; aspect-ratio:16/10; object-fit:cover;
+    background:var(--paper-raised); display:block;
+  }
+  .detail-body{padding:20px 20px 40px;}
+  .detail-body .place-eyebrow{
+    font-size:0.7rem; color:var(--brass); text-transform:uppercase; letter-spacing:0.14em; font-weight:600;
+  }
+  .detail-body h2{font-size:1.65rem; margin-top:8px; line-height:1.15;}
+  .detail-meta-row{
+    display:flex; gap:14px; margin-top:12px; flex-wrap:wrap;
+    font-size:0.76rem; color:var(--ink-soft);
+  }
+  .detail-meta-row span{display:flex; align-items:center; gap:5px;}
+  .detail-meta-row svg{width:14px;height:14px;}
+  .rule{height:1px; background:var(--rule); margin:18px 0;}
+  .extract{font-size:0.98rem; line-height:1.7; color:var(--ink);}
+  .extract p{margin:0 0 14px;}
+  .action-row{display:flex; gap:10px; margin-top:22px; flex-wrap:wrap;}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 18px; border-radius:22px; font-size:0.85rem;
+    border:1px solid var(--rule); background:var(--paper-raised); color:var(--ink);
+    text-decoration:none; cursor:pointer;
+  }
+  .btn svg{width:16px;height:16px;}
+  .btn.primary{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  [data-theme="dark"] .btn.primary, [data-theme="sepia"] .btn.primary{background:var(--brass); border-color:var(--brass); color:var(--paper);}
+  .btn.save.saved{border-color:var(--verdigris); color:var(--verdigris);}
+
+  /* ---------- History tab ---------- */
+  .section-title{padding:20px 18px 4px; font-size:1.35rem;}
+  .section-sub{padding:0 18px; color:var(--ink-soft); font-size:0.85rem; margin-top:2px;}
+  .hist-list{padding:14px 18px; display:flex; flex-direction:column; gap:10px;}
+  .hist-item{
+    display:flex; align-items:center; gap:12px;
+    background:var(--paper-raised); border:1px solid var(--rule);
+    border-radius:8px; padding:10px 12px; cursor:pointer;
+  }
+  .hist-item .thumb{
+    width:44px;height:44px;border-radius:6px; object-fit:cover; flex:0 0 auto;
+    background:var(--paper);
+  }
+  .hist-item .ht-title{font-size:0.92rem; font-weight:600; line-height:1.2;}
+  .hist-item .ht-when{font-size:0.7rem; color:var(--ink-soft); margin-top:3px;}
+  .clear-row{padding:4px 18px 20px;}
+  .clear-row button{
+    background:none; border:1px solid var(--rust); color:var(--rust);
+    padding:8px 16px; border-radius:18px; font-size:0.78rem; cursor:pointer;
+  }
+
+  /* ---------- Settings tab ---------- */
+  .settings-group{padding:16px 18px;}
+  .settings-group h3{font-size:0.78rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--brass); margin-bottom:12px;}
+  .opt-row{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--paper-raised); border:1px solid var(--rule);
+    border-radius:10px; padding:12px 14px; margin-bottom:10px;
+  }
+  .opt-row .opt-label{font-size:0.9rem;}
+  .opt-row .opt-desc{font-size:0.72rem; color:var(--ink-soft); margin-top:2px;}
+  .seg{display:flex; background:var(--paper); border:1px solid var(--rule); border-radius:20px; padding:3px; gap:2px;}
+  .seg button{
+    border:none; background:none; padding:6px 12px; font-size:0.78rem; border-radius:16px; cursor:pointer; color:var(--ink-soft);
+  }
+  .seg button.active{background:var(--ink); color:var(--paper);}
+  [data-theme="dark"] .seg button.active, [data-theme="sepia"] .seg button.active{background:var(--brass);}
+  .about-block{padding:8px 18px 30px; color:var(--ink-soft); font-size:0.8rem; line-height:1.6;}
+
+  /* ---------- Bottom tab bar ---------- */
+  .tabbar{
+    position:fixed; bottom:0; left:0; right:0; z-index:30;
+    background:var(--paper-raised); border-top:1px solid var(--rule);
+    display:flex; justify-content:center;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tabbar-inner{
+    max-width:640px; width:100%; display:flex;
+  }
+  .tab-btn{
+    flex:1; background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    padding:10px 0 8px; color:var(--ink-soft);
+  }
+  .tab-btn svg{width:22px;height:22px;}
+  .tab-btn span{font-size:0.66rem; letter-spacing:0.03em; text-transform:uppercase;}
+  .tab-btn.active{color:var(--brass);}
+
+  ::selection{background:var(--brass-dim); color:var(--ink);}
+  @media (prefers-reduced-motion: reduce){
+    .view, .marker, .spinner{animation:none !important; transition:none !important;}
+  }
+</style>
+</head>
+<body data-theme="light">
+<div id="app">
+
+  <header class="topbar">
+    <button class="back-btn" id="backBtn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <svg class="brandmark" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="21" stroke="currentColor" stroke-width="2"/>
+      <path d="M24 8v4M24 36v4M8 24h4M36 24h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M24 24L32 16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="24" cy="24" r="2.6" fill="currentColor"/>
+    </svg>
+    <div class="brandtext">
+      <div class="name">This Place in History</div>
+      <div class="tag" id="topbarTag">Nearby</div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ===== NEARBY VIEW ===== -->
+    <section class="view" id="view-nearby">
+      <div class="hero">
+        <div class="eyebrow"><span class="dot"></span><span id="heroEyebrow">Locating you</span></div>
+        <h1 id="heroPlace">Finding where you are&hellip;</h1>
+        <div class="sub" id="heroSub">We use your device location to look up recorded history nearby.</div>
+        <div class="coords mono" id="heroCoords"></div>
+      </div>
+      <div class="radius-row" id="radiusRow" style="display:none;">
+        <button class="chip" data-radius="2000">2 km</button>
+        <button class="chip active" data-radius="10000">10 km</button>
+        <button class="chip" data-radius="30000">30 km</button>
+        <button class="refresh-btn" id="refreshBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          Refresh
+        </button>
+      </div>
+
+      <div id="nearbyStatus"></div>
+      <div class="marker-list" id="markerList"></div>
+    </section>
+
+    <!-- ===== DETAIL VIEW ===== -->
+    <section class="view" id="view-detail">
+      <div id="detailContent"></div>
+    </section>
+
+    <!-- ===== HISTORY VIEW ===== -->
+    <section class="view" id="view-history">
+      <h2 class="section-title">Your History</h2>
+      <div class="section-sub">Places you've opened, most recent first.</div>
+      <div class="hist-list" id="histList"></div>
+      <div class="clear-row" id="clearRow" style="display:none;">
+        <button id="clearHistBtn">Clear history</button>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS VIEW ===== -->
+    <section class="view" id="view-settings">
+      <h2 class="section-title">Appearance</h2>
+      <div class="settings-group">
+        <h3>Theme</h3>
+        <div class="opt-row">
+          <div>
+            <div class="opt-label">Paper style</div>
+            <div class="opt-desc">Choose how the app looks</div>
+          </div>
+          <div class="seg" id="themeSeg">
+            <button data-theme-opt="light">Light</button>
+            <button data-theme-opt="sepia">Sepia</button>
+            <button data-theme-opt="dark">Dark</button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <div>
+            <div class="opt-label">Text size</div>
+            <div class="opt-desc">Adjust reading comfort</div>
+          </div>
+          <div class="seg" id="fontSeg">
+            <button data-font-opt="0.92">A</button>
+            <button data-font-opt="1">A</button>
+            <button data-font-opt="1.15">A</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Search</h3>
+        <div class="opt-row">
+          <div>
+            <div class="opt-label">Default radius</div>
+            <div class="opt-desc" id="radiusDesc">10 km around you</div>
+          </div>
+          <div class="seg" id="radiusSeg">
+            <button data-radius-opt="2000">2</button>
+            <button data-radius-opt="10000">10</button>
+            <button data-radius-opt="30000">30</button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Data</h3>
+        <div class="opt-row">
+          <div>
+            <div class="opt-label">Clear saved history</div>
+            <div class="opt-desc">Removes all places you've viewed or saved</div>
+          </div>
+          <button class="chip" id="settingsClearBtn">Clear</button>
+        </div>
+      </div>
+      <div class="about-block">
+        This Place in History uses OpenStreetMap (Nominatim) for place names and the Wikipedia API for nearby historical articles, images, and summaries &mdash; both free, open, and key-free. Video links open a YouTube search in a new tab.
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <div class="tabbar-inner">
+      <button class="tab-btn active" data-tab="nearby">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span>Nearby</span>
+      </button>
+      <button class="tab-btn" data-tab="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <span>History</span>
+      </button>
+      <button class="tab-btn" data-tab="settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 0 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 0 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.55V3a2 2 0 0 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 0 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1Z"/></svg>
+        <span>Settings</span>
+      </button>
+    </div>
+  </nav>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- State ----------
+  var state = {
+    tab: 'nearby',
+    detailId: null,
+    coords: null,
+    placeName: null,
+    radius: 10000,
+    events: [],
+    stack: [] // navigation stack of {tab, detailId}
+  };
+
+  var SETTINGS_KEY = 'tpih_settings_v1';
+  var HISTORY_KEY = 'tpih_history_v1';
+
+  function loadSettings(){
+    try{
+      var s = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+      return {
+        theme: s.theme || 'light',
+        fontScale: s.fontScale || 1,
+        radius: s.radius || 10000
+      };
+    }catch(e){ return {theme:'light', fontScale:1, radius:10000}; }
+  }
+  function saveSettings(s){
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  }
+  function loadHistory(){
+    try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }catch(e){ return []; }
+  }
+  function saveHistory(list){
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0,60)));
+  }
+  function addToHistory(item){
+    var list = loadHistory();
+    list = list.filter(function(x){ return x.pageid !== item.pageid; });
+    list.unshift({
+      pageid: item.pageid, title: item.title, thumb: item.thumb || null,
+      viewedAt: Date.now()
+    });
+    saveHistory(list);
+  }
+
+  var settings = loadSettings();
+  state.radius = settings.radius;
+  applyTheme(settings.theme);
+  applyFontScale(settings.fontScale);
+
+  function applyTheme(t){
+    document.body.setAttribute('data-theme', t);
+    document.querySelectorAll('#themeSeg button').forEach(function(b){
+      b.classList.toggle('active', b.dataset.themeOpt === t);
+    });
+    settings.theme = t; saveSettings(settings);
+  }
+  function applyFontScale(v){
+    document.documentElement.style.setProperty('--fs-scale', v);
+    document.querySelectorAll('#fontSeg button').forEach(function(b){
+      b.classList.toggle('active', parseFloat(b.dataset.fontOpt) === parseFloat(v));
+    });
+    settings.fontScale = v; saveSettings(settings);
+  }
+  function applyDefaultRadius(v){
+    document.querySelectorAll('#radiusSeg button').forEach(function(b){
+      b.classList.toggle('active', parseInt(b.dataset.radiusOpt) === parseInt(v));
+    });
+    var label = (v/1000) + ' km around you';
+    document.getElementById('radiusDesc').textContent = label;
+    settings.radius = v; saveSettings(settings);
+  }
+  applyDefaultRadius(state.radius);
+
+  // ---------- Routing (device back support) ----------
+  function currentRouteState(){
+    return { tab: state.tab, detailId: state.detailId };
+  }
+  function pushRoute(next){
+    state.tab = next.tab !== undefined ? next.tab : state.tab;
+    state.detailId = next.detailId !== undefined ? next.detailId : null;
+    history.pushState(currentRouteState(), '', '#' + state.tab + (state.detailId ? '/' + state.detailId : ''));
+    render();
+  }
+  window.addEventListener('popstate', function(e){
+    var s = e.state || {tab:'nearby', detailId:null};
+    state.tab = s.tab || 'nearby';
+    state.detailId = s.detailId || null;
+    render();
+  });
+  history.replaceState(currentRouteState(), '', '#nearby');
+
+  // ---------- Tab bar ----------
+  document.querySelectorAll('.tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if(btn.dataset.tab === state.tab && !state.detailId) return;
+      pushRoute({tab: btn.dataset.tab, detailId: null});
+    });
+  });
+  document.getElementById('backBtn').addEventListener('click', function(){
+    history.back();
+  });
+
+  function render(){
+    document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tab === state.tab); });
+    var backBtn = document.getElementById('backBtn');
+    var tag = document.getElementById('topbarTag');
+
+    if(state.detailId){
+      document.getElementById('view-detail').classList.add('active');
+      backBtn.classList.add('show');
+      tag.textContent = 'Details';
+      renderDetail(state.detailId);
+      window.scrollTo(0,0);
+      return;
+    }
+
+    backBtn.classList.remove('show');
+    if(state.tab === 'nearby'){
+      document.getElementById('view-nearby').classList.add('active');
+      tag.textContent = 'Nearby';
+    } else if(state.tab === 'history'){
+      document.getElementById('view-history').classList.add('active');
+      tag.textContent = 'History';
+      renderHistoryTab();
+    } else if(state.tab === 'settings'){
+      document.getElementById('view-settings').classList.add('active');
+      tag.textContent = 'Settings';
+    }
+    window.scrollTo(0,0);
+  }
+
+  // ---------- Icons ----------
+  var ICON_MAP_PIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>';
+  var ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  var ICON_EXTERNAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
+  var ICON_BOOKMARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
+
+  // ---------- Geolocation + data fetching ----------
+  function metersLabel(m){
+    if(m < 1000) return Math.round(m) + ' m away';
+    return (m/1000).toFixed(1) + ' km away';
+  }
+
+  function showStatus(html){
+    document.getElementById('nearbyStatus').innerHTML = html;
+    document.getElementById('markerList').innerHTML = '';
+  }
+
+  function startLocating(){
+    document.getElementById('radiusRow').style.display = 'none';
+    document.getElementById('heroEyebrow').textContent = 'Locating you';
+    document.getElementById('heroPlace').textContent = 'Finding where you are\u2026';
+    document.getElementById('heroSub').textContent = 'We use your device location to look up recorded history nearby.';
+    document.getElementById('heroCoords').textContent = '';
+    showStatus('<div class="status-block"><div class="spinner"></div><p>Waiting for location access\u2026</p></div>');
+
+    if(!navigator.geolocation){
+      showLocationError('Geolocation isn\'t supported on this device or browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(function(pos){
+      state.coords = {lat: pos.coords.latitude, lon: pos.coords.longitude};
+      onLocated();
+    }, function(err){
+      showLocationError(err.code === 1
+        ? 'Location access was denied. Enable it in your browser or device settings to see nearby history.'
+        : 'We couldn\'t determine your location. Please try again.');
+    }, {enableHighAccuracy:true, timeout:12000, maximumAge:300000});
+  }
+
+  function showLocationError(msg){
+    document.getElementById('heroEyebrow').textContent = 'Location unavailable';
+    document.getElementById('heroPlace').textContent = 'We need your location';
+    showStatus(
+      '<div class="status-block">'+
+      '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>'+
+      '<h3>Location unavailable</h3><p>'+msg+'</p>'+
+      '<button id="retryLocateBtn">Try again</button>'+
+      '</div>'
+    );
+    var b = document.getElementById('retryLocateBtn');
+    if(b) b.addEventListener('click', startLocating);
+  }
+
+  function onLocated(){
+    document.getElementById('heroCoords').textContent =
+      state.coords.lat.toFixed(4) + '\u00b0, ' + state.coords.lon.toFixed(4) + '\u00b0';
+    reverseGeocode();
+    document.getElementById('radiusRow').style.display = 'flex';
+    document.querySelectorAll('#radiusRow .chip').forEach(function(c){
+      c.classList.toggle('active', parseInt(c.dataset.radius) === state.radius);
+    });
+    fetchNearbyEvents();
+  }
+
+  function reverseGeocode(){
+    var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat='+state.coords.lat+'&lon='+state.coords.lon+'&zoom=12&addressdetails=1';
+    fetch(url, {headers:{'Accept':'application/json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var a = data.address || {};
+        var name = a.city || a.town || a.village || a.suburb || a.county || a.state || data.display_name;
+        state.placeName = name || 'your location';
+        document.getElementById('heroEyebrow').textContent = 'Nearby history';
+        document.getElementById('heroPlace').textContent = state.placeName;
+        document.getElementById('heroSub').textContent = 'Historical places and events recorded near ' + state.placeName + '.';
+      })
+      .catch(function(){
+        state.placeName = 'your location';
+        document.getElementById('heroEyebrow').textContent = 'Nearby history';
+        document.getElementById('heroPlace').textContent = 'Your area';
+      });
+  }
+
+  function fetchNearbyEvents(){
+    if(!state.coords) return;
+    showStatus('<div class="status-block"><div class="spinner"></div><p>Searching the historical record\u2026</p></div>');
+    var coordParam = state.coords.lat + '|' + state.coords.lon;
+    var url = 'https://en.wikipedia.org/w/api.php?action=query&list=geosearch'
+      + '&gscoord=' + encodeURIComponent(coordParam)
+      + '&gsradius=' + state.radius
+      + '&gslimit=40&format=json&origin=*';
+
+    fetch(url).then(function(r){ return r.json(); }).then(function(data){
+      var results = (data.query && data.query.geosearch) || [];
+      if(results.length === 0){
+        showStatus(
+          '<div class="status-block">'+
+          '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
+          '<h3>Nothing recorded nearby</h3><p>Try widening the search radius above.</p>'+
+          '</div>'
+        );
+        return;
+      }
+      state.events = results;
+      showStatus('');
+      renderMarkerList(results);
+      fetchThumbnails(results);
+    }).catch(function(){
+      showStatus(
+        '<div class="status-block">'+
+        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>'+
+        '<h3>Couldn\'t reach Wikipedia</h3><p>Check your connection and try again.</p>'+
+        '<button id="retryFetchBtn">Retry</button>'+
+        '</div>'
+      );
+      var b = document.getElementById('retryFetchBtn');
+      if(b) b.addEventListener('click', fetchNearbyEvents);
+    });
+  }
+
+  function renderMarkerList(results){
+    var list = document.getElementById('markerList');
+    list.innerHTML = results.map(function(ev){
+      return '<button class="marker" data-pageid="'+ev.pageid+'" data-title="'+escapeHtml(ev.title)+'">'+
+        '<span class="pin mono">'+metersLabel(ev.dist)+'</span>'+
+        '<div class="m-title">'+escapeHtml(ev.title)+'</div>'+
+        '<div class="m-meta">'+ICON_MAP_PIN+'<span>'+ev.lat.toFixed(3)+'\u00b0, '+ev.lon.toFixed(3)+'\u00b0</span></div>'+
+        '<div class="m-excerpt" id="excerpt-'+ev.pageid+'"></div>'+
+        '</button>';
+    }).join('');
+    list.querySelectorAll('.marker').forEach(function(el){
+      el.addEventListener('click', function(){
+        openDetail(parseInt(el.dataset.pageid), el.dataset.title);
+      });
+    });
+  }
+
+  function fetchThumbnails(results){
+    var ids = results.map(function(r){ return r.pageid; }).join('|');
+    if(!ids) return;
+    var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages'
+      + '&exintro=1&explaintext=1&exchars=180&piprop=thumbnail&pithumbsize=200'
+      + '&pageids=' + encodeURIComponent(ids) + '&format=json&origin=*';
+    fetch(url).then(function(r){ return r.json(); }).then(function(data){
+      var pages = (data.query && data.query.pages) || {};
+      Object.keys(pages).forEach(function(id){
+        var p = pages[id];
+        var ex = document.getElementById('excerpt-'+id);
+        if(ex && p.extract) ex.textContent = p.extract;
+        if(p.thumbnail && p.thumbnail.source){
+          var ev = state.events.find(function(e){ return String(e.pageid) === String(id); });
+          if(ev) ev.thumb = p.thumbnail.source;
+        }
+      });
+    }).catch(function(){});
+  }
+
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // ---------- Detail view ----------
+  function openDetail(pageid, title){
+    var ev = state.events.find(function(e){ return e.pageid === pageid; }) || {pageid:pageid, title:title};
+    addToHistory({pageid: pageid, title: title, thumb: ev.thumb || null});
+    pushRoute({tab: state.tab, detailId: pageid});
+  }
+
+  var detailCache = {};
+
+  function renderDetail(pageid){
+    var container = document.getElementById('detailContent');
+    var cached = detailCache[pageid];
+    if(cached){
+      paintDetail(container, cached);
+      return;
+    }
+    var fallbackTitle = (state.events.find(function(e){ return e.pageid === pageid; }) || {}).title
+      || (loadHistory().find(function(h){ return h.pageid === pageid; }) || {}).title
+      || 'Loading\u2026';
+    container.innerHTML =
+      '<div class="status-block" style="margin-top:60px;"><div class="spinner"></div><p>Retrieving the story of '+escapeHtml(fallbackTitle)+'\u2026</p></div>';
+
+    var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages|info|coordinates'
+      + '&exintro=1&explaintext=1&piprop=original&inprop=url'
+      + '&pageids=' + pageid + '&format=json&origin=*';
+    fetch(url).then(function(r){ return r.json(); }).then(function(data){
+      var page = data.query && data.query.pages && data.query.pages[pageid];
+      if(!page){ throw new Error('not found'); }
+      var record = {
+        pageid: pageid,
+        title: page.title,
+        extract: page.extract || 'No summary is available for this place yet.',
+        image: page.original ? page.original.source : null,
+        url: page.fullurl,
+        coords: (page.coordinates && page.coordinates[0]) || null
+      };
+      detailCache[pageid] = record;
+      // only paint if still on this detail
+      if(state.detailId === pageid){ paintDetail(container, record); }
+    }).catch(function(){
+      if(state.detailId !== pageid) return;
+      container.innerHTML =
+        '<div class="status-block" style="margin-top:60px;">'+
+        '<h3>Couldn\'t load this place</h3><p>Check your connection and try again.</p>'+
+        '<button id="retryDetailBtn">Retry</button></div>';
+      var b = document.getElementById('retryDetailBtn');
+      if(b) b.addEventListener('click', function(){ delete detailCache[pageid]; renderDetail(pageid); });
+    });
+  }
+
+  function paintDetail(container, record){
+    var savedList = loadHistory();
+    var savedItem = savedList.find(function(h){ return h.pageid === record.pageid; });
+    var originEv = state.events.find(function(e){ return e.pageid === record.pageid; });
+    var distLine = originEv ? metersLabel(originEv.dist) : '';
+    var videoUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(record.title + ' history');
+
+    container.innerHTML =
+      (record.image ? '<img class="detail-hero-img" src="'+record.image+'" alt="'+escapeHtml(record.title)+'">' : '')
+      + '<div class="detail-body">'
+      + '<div class="place-eyebrow">Historical record</div>'
+      + '<h2>'+escapeHtml(record.title)+'</h2>'
+      + '<div class="detail-meta-row">'
+      + (distLine ? '<span>'+ICON_MAP_PIN+distLine+'</span>' : '')
+      + (record.coords ? '<span class="mono">'+record.coords.lat.toFixed(3)+'\u00b0, '+record.coords.lon.toFixed(3)+'\u00b0</span>' : '')
+      + '</div>'
+      + '<div class="rule"></div>'
+      + '<div class="extract">' + record.extract.split('\n').filter(Boolean).map(function(p){ return '<p>'+escapeHtml(p)+'</p>'; }).join('') + '</div>'
+      + '<div class="action-row">'
+      + '<a class="btn primary" href="'+record.url+'" target="_blank" rel="noopener">'+ICON_EXTERNAL+' Read full article</a>'
+      + '<a class="btn" href="'+videoUrl+'" target="_blank" rel="noopener">'+ICON_PLAY+' Related videos</a>'
+      + '<button class="btn save" id="saveBtn">'+ICON_BOOKMARK+' <span id="saveLabel">'+(savedItem ? 'Saved' : 'Save')+'</span></button>'
+      + '</div>'
+      + '</div>';
+
+    var saveBtn = document.getElementById('saveBtn');
+    saveBtn.classList.toggle('saved', !!savedItem);
+    saveBtn.addEventListener('click', function(){
+      addToHistory({pageid: record.pageid, title: record.title, thumb: record.image});
+      saveBtn.classList.add('saved');
+      document.getElementById('saveLabel').textContent = 'Saved';
+    });
+  }
+
+  // ---------- History tab ----------
+  function renderHistoryTab(){
+    var list = loadHistory();
+    var wrap = document.getElementById('histList');
+    var clearRow = document.getElementById('clearRow');
+    if(list.length === 0){
+      wrap.innerHTML =
+        '<div class="status-block">'+ICON_CLOCK.replace('<svg ', '<svg class="icon" ')+
+        '<h3>No places yet</h3><p>Places you open from Nearby will appear here so you can find them again.</p></div>';
+      clearRow.style.display = 'none';
+      return;
+    }
+    clearRow.style.display = 'block';
+    wrap.innerHTML = list.map(function(h){
+      var when = new Date(h.viewedAt);
+      var whenStr = when.toLocaleDateString(undefined, {month:'short', day:'numeric'}) + ' \u00b7 ' + when.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
+      return '<div class="hist-item" data-pageid="'+h.pageid+'" data-title="'+escapeHtml(h.title)+'">'
+        + (h.thumb ? '<img class="thumb" src="'+h.thumb+'" alt="">' : '<div class="thumb"></div>')
+        + '<div><div class="ht-title">'+escapeHtml(h.title)+'</div><div class="ht-when">'+whenStr+'</div></div>'
+        + '</div>';
+    }).join('');
+    wrap.querySelectorAll('.hist-item').forEach(function(el){
+      el.addEventListener('click', function(){
+        pushRoute({tab:'history', detailId: parseInt(el.dataset.pageid)});
+      });
+    });
+  }
+  document.getElementById('clearHistBtn').addEventListener('click', function(){
+    saveHistory([]);
+    renderHistoryTab();
+  });
+  document.getElementById('settingsClearBtn').addEventListener('click', function(){
+    saveHistory([]);
+    if(state.tab === 'history') renderHistoryTab();
+  });
+
+  // ---------- Settings interactions ----------
+  document.querySelectorAll('#themeSeg button').forEach(function(b){
+    b.addEventListener('click', function(){ applyTheme(b.dataset.themeOpt); });
+  });
+  document.querySelectorAll('#fontSeg button').forEach(function(b){
+    b.addEventListener('click', function(){ applyFontScale(parseFloat(b.dataset.fontOpt)); });
+  });
+  document.querySelectorAll('#radiusSeg button').forEach(function(b){
+    b.addEventListener('click', function(){
+      var v = parseInt(b.dataset.radiusOpt);
+      applyDefaultRadius(v);
+      state.radius = v;
+      document.querySelectorAll('#radiusRow .chip').forEach(function(c){
+        c.classList.toggle('active', parseInt(c.dataset.radius) === v);
+      });
+      if(state.coords) fetchNearbyEvents();
+    });
+  });
+
+  // ---------- Radius chips + refresh (nearby view) ----------
+  document.querySelectorAll('#radiusRow .chip').forEach(function(c){
+    c.addEventListener('click', function(){
+      document.querySelectorAll('#radiusRow .chip').forEach(function(x){ x.classList.remove('active'); });
+      c.classList.add('active');
+      state.radius = parseInt(c.dataset.radius);
+      fetchNearbyEvents();
+    });
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function(){
+    if(state.coords) fetchNearbyEvents(); else startLocating();
+  });
+
+  // ---------- Init ----------
+  applyTheme(settings.theme);
+  applyFontScale(settings.fontScale);
+  render();
+  startLocating();
+
+})();
+</script>
+</body>
+</html>
