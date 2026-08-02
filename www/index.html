@@ -491,12 +491,13 @@
     saveHistory(list);
   }
 
+  var THEME_COLORS = {light:'#F1E9D8', sepia:'#E9DCC0', dark:'#1C1712'};
+
   var settings = loadSettings();
   state.radius = settings.radius;
   applyTheme(settings.theme);
   applyFontScale(settings.fontScale);
 
-  var THEME_COLORS = {light:'#F1E9D8', sepia:'#E9DCC0', dark:'#1C1712'};
   function applyTheme(t){
     document.body.setAttribute('data-theme', t);
     document.querySelectorAll('#themeSeg button').forEach(function(b){
