@@ -667,6 +667,40 @@
       });
   }
 
+  // Categories that mark an article as historical in nature. Matched
+  // case-insensitively against each page's (non-hidden) Wikipedia categories.
+  var HISTORY_CATEGORY_RE = /histor|\bbattle|\bsiege|\bwar\b|treaty|massacre|rebellion|revolution|uprising|\bfounded|founding|establishment|monument|memorial|cemetery|graveyard|archaeolog|ancient|prehistoric|colonial|heritage|national register|historic landmark|\bruins\b|fort(?:ress)?\b|\bcastle\b|shipwreck|dynasty|\bempire\b|kingdom|explorer|pioneer|settlement|plantation|slavery|indigenous|native american|tribal|\bmission\b|lighthouse|ghost town|archive|former.*(fort|station|mill)|world war|civil war/i;
+
+  // Given raw geosearch results, fetch each page's categories and keep only
+  // the ones that look historical. Falls back to the unfiltered list if the
+  // category lookup itself fails, so a network hiccup doesn't break Nearby.
+  function filterHistorical(results){
+    var ids = results.map(function(r){ return r.pageid; });
+    var chunks = [];
+    for(var i=0;i<ids.length;i+=50){ chunks.push(ids.slice(i,i+50)); }
+
+    return Promise.all(chunks.map(function(chunk){
+      var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=categories'
+        + '&clshow=!hidden&cllimit=500'
+        + '&pageids=' + chunk.join('|') + '&format=json&origin=*';
+      return fetch(url).then(function(r){ return r.json(); });
+    })).then(function(responses){
+      var catMap = {};
+      responses.forEach(function(data){
+        var pages = (data.query && data.query.pages) || {};
+        Object.keys(pages).forEach(function(id){
+          var cats = (pages[id].categories || []).map(function(c){ return c.title; }).join(' | ');
+          catMap[id] = cats;
+        });
+      });
+      return results.filter(function(ev){
+        return HISTORY_CATEGORY_RE.test(catMap[ev.pageid] || '');
+      });
+    }).catch(function(){
+      return results; // best effort: don't let a failed category fetch empty the list
+    });
+  }
+
   function fetchNearbyEvents(){
     if(!state.coords) return;
     showStatus('<div class="status-block"><div class="spinner"></div><p>Searching the historical record\u2026</p></div>');
@@ -674,7 +708,7 @@
     var url = 'https://en.wikipedia.org/w/api.php?action=query&list=geosearch'
       + '&gscoord=' + encodeURIComponent(coordParam)
       + '&gsradius=' + state.radius
-      + '&gslimit=40&format=json&origin=*';
+      + '&gslimit=50&format=json&origin=*';
 
     fetch(url).then(function(r){ return r.json(); }).then(function(data){
       var results = (data.query && data.query.geosearch) || [];
@@ -687,10 +721,21 @@
         );
         return;
       }
-      state.events = results;
-      showStatus('');
-      renderMarkerList(results);
-      fetchThumbnails(results);
+      filterHistorical(results).then(function(histResults){
+        if(histResults.length === 0){
+          showStatus(
+            '<div class="status-block">'+
+            '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
+            '<h3>Nothing historical nearby</h3><p>There are nearby Wikipedia entries, but none look historically significant. Try widening the search radius above.</p>'+
+            '</div>'
+          );
+          return;
+        }
+        state.events = histResults;
+        showStatus('');
+        renderMarkerList(histResults);
+        fetchThumbnails(histResults);
+      });
     }).catch(function(){
       showStatus(
         '<div class="status-block">'+
