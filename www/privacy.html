@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — This Place in History</title>
+<link rel="icon" href="icon.png" type="image/png">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F1E9D8; --paper-raised:#F8F2E4; --ink:#2B211A; --ink-soft:#5B4E40;
+    --brass:#A9793B; --rule:#C9B896; --verdigris:#3E6259;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Source Sans 3', sans-serif; line-height:1.65;
+  }
+  .wrap{max-width:620px; margin:0 auto; padding:36px 20px 64px;}
+  a.back{
+    display:inline-flex; align-items:center; gap:6px; color:var(--verdigris);
+    text-decoration:none; font-size:0.85rem; margin-bottom:22px;
+  }
+  h1{font-family:'Fraunces', serif; font-size:1.9rem; margin:0 0 6px; line-height:1.15;}
+  .updated{font-size:0.78rem; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:28px;}
+  h2{font-family:'Fraunces', serif; font-size:1.15rem; margin:30px 0 10px; color:var(--brass);}
+  p, li{font-size:0.95rem; color:var(--ink);}
+  ul{padding-left:20px;}
+  li{margin-bottom:6px;}
+  .card{
+    background:var(--paper-raised); border:1px solid var(--rule); border-left:3px solid var(--brass);
+    border-radius:6px; padding:14px 16px; margin:18px 0; font-size:0.9rem; color:var(--ink-soft);
+  }
+  a{color:var(--verdigris);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Back to This Place in History</a>
+  <h1>Privacy Policy</h1>
+  <div class="updated">Last updated August 2, 2026</div>
+
+  <p>This Place in History is a small, single-purpose app: it shows you historical places recorded near your location. It has no account system, no server, and no analytics. Here's exactly what happens with your data.</p>
+
+  <h2>Your location</h2>
+  <p>When you open the app, your browser asks permission to share your device's location. If you allow it, your coordinates are used only to:</p>
+  <ul>
+    <li>Look up a nearby place name through OpenStreetMap's Nominatim service</li>
+    <li>Search for nearby historical articles through the Wikipedia API</li>
+  </ul>
+  <p>Your coordinates are sent directly from your browser to those two services — never to us, because there is no "us" in the middle. We don't operate a server, and we don't see, log, or store your location anywhere.</p>
+  <div class="card">You can deny or revoke location access at any time in your browser or device settings. The app will still run, but it won't be able to find places near you.</div>
+
+  <h2>What's stored on your device</h2>
+  <p>The app saves a few things locally, using your browser's storage on your device only:</p>
+  <ul>
+    <li><strong>History</strong> — places you've opened or saved, so you can find them again</li>
+    <li><strong>Settings</strong> — your theme, text size, and default search radius</li>
+  </ul>
+  <p>None of this leaves your device. It isn't transmitted to any server, and clearing it is one tap away in the app's Settings tab.</p>
+
+  <h2>Third-party services</h2>
+  <p>The app talks directly to a small set of outside services, each with its own privacy practices:</p>
+  <ul>
+    <li><strong>OpenStreetMap / Nominatim</strong> — turns your coordinates into a place name</li>
+    <li><strong>Wikipedia / Wikimedia</strong> — supplies the list of nearby historical articles, summaries, and images</li>
+    <li><strong>YouTube</strong> — the "Related videos" button opens a YouTube search in a new tab; you're subject to YouTube's own privacy policy once you land there</li>
+  </ul>
+  <p>These requests happen straight from your browser to those services. Standard technical information (like your IP address) is visible to them the way it would be for any website you visit, under their own privacy policies.</p>
+
+  <h2>Cookies and tracking</h2>
+  <p>This app sets no cookies, runs no analytics, shows no ads, and does not track you across sites or sessions.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this app ever starts doing something new with data, this page will be updated to say so before that change ships.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy can be sent to the app's maintainer through the project's GitHub repository.</p>
+</div>
+</body>
+</html>

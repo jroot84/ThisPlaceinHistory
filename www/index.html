@@ -4,6 +4,20 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>This Place in History</title>
+<meta name="description" content="Discover the historical places and events recorded near you.">
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta id="themeColorMeta" name="theme-color" content="#2B211A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="This Place">
+
+<!-- Icons -->
+<link rel="icon" href="icon.png" type="image/png">
+<link rel="apple-touch-icon" href="icon.png">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -404,6 +418,8 @@
       </div>
       <div class="about-block">
         This Place in History uses OpenStreetMap (Nominatim) for place names and the Wikipedia API for nearby historical articles, images, and summaries &mdash; both free, open, and key-free. Video links open a YouTube search in a new tab.
+        <br><br>
+        <a href="privacy.html">Privacy policy</a>
       </div>
     </section>
 
@@ -480,11 +496,14 @@
   applyTheme(settings.theme);
   applyFontScale(settings.fontScale);
 
+  var THEME_COLORS = {light:'#F1E9D8', sepia:'#E9DCC0', dark:'#1C1712'};
   function applyTheme(t){
     document.body.setAttribute('data-theme', t);
     document.querySelectorAll('#themeSeg button').forEach(function(b){
       b.classList.toggle('active', b.dataset.themeOpt === t);
     });
+    var meta = document.getElementById('themeColorMeta');
+    if(meta) meta.setAttribute('content', THEME_COLORS[t] || THEME_COLORS.light);
     settings.theme = t; saveSettings(settings);
   }
   function applyFontScale(v){
