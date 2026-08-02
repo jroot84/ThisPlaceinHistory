@@ -154,6 +154,13 @@
     display:flex; align-items:center; gap:5px; font-size:0.78rem; cursor:pointer; padding:6px 4px;
   }
   .refresh-btn svg{width:15px;height:15px;}
+  .search-input{
+    width:100%; border:1px solid var(--rule); background:var(--paper-raised);
+    color:var(--ink); padding:9px 14px; border-radius:20px; font-size:0.85rem;
+    font-family:inherit; outline:none;
+  }
+  .search-input:focus{border-color:var(--brass);}
+  .search-input::placeholder{color:var(--ink-soft);}
 
   /* ---------- Status states ---------- */
   .status-block{
@@ -336,13 +343,22 @@
         <div class="coords mono" id="heroCoords"></div>
       </div>
       <div class="radius-row" id="radiusRow" style="display:none;">
-        <button class="chip" data-radius="2000">2 km</button>
-        <button class="chip active" data-radius="10000">10 km</button>
-        <button class="chip" data-radius="30000">30 km</button>
+        <button class="chip" data-radius="1">1 mi</button>
+        <button class="chip active" data-radius="5">5 mi</button>
+        <button class="chip" data-radius="15">15 mi</button>
         <button class="refresh-btn" id="refreshBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
           Refresh
         </button>
+      </div>
+      <div class="radius-row" id="dateRow" style="display:none;">
+        <button class="chip active" data-datefilter="any">Any time</button>
+        <button class="chip" data-datefilter="recent">&lt; 50 yrs</button>
+        <button class="chip" data-datefilter="mid">50&ndash;100 yrs</button>
+        <button class="chip" data-datefilter="old">100+ yrs</button>
+      </div>
+      <div class="radius-row" id="searchRow" style="display:none; padding-top:0;">
+        <input type="text" id="searchInput" class="search-input" placeholder="Filter these results&hellip;" autocomplete="off">
       </div>
 
       <div id="nearbyStatus"></div>
@@ -397,12 +413,12 @@
         <div class="opt-row">
           <div>
             <div class="opt-label">Default radius</div>
-            <div class="opt-desc" id="radiusDesc">10 km around you</div>
+            <div class="opt-desc" id="radiusDesc">5 mi around you</div>
           </div>
           <div class="seg" id="radiusSeg">
-            <button data-radius-opt="2000">2</button>
-            <button data-radius-opt="10000">10</button>
-            <button data-radius-opt="30000">30</button>
+            <button data-radius-opt="1">1</button>
+            <button data-radius-opt="5">5</button>
+            <button data-radius-opt="15">15</button>
           </div>
         </div>
       </div>
@@ -417,7 +433,9 @@
         </div>
       </div>
       <div class="about-block">
-        This Place in History uses OpenStreetMap (Nominatim) for place names and the Wikipedia API for nearby historical articles, images, and summaries &mdash; both free, open, and key-free. Video links open a YouTube search in a new tab.
+        This Place in History uses OpenStreetMap (Nominatim) for place names and the Wikidata Query Service to find nearby places with a documented historical designation, event, or tie to a notable figure &mdash; then pulls summaries and images from the Wikipedia API. All free, open, and key-free. Video links open a YouTube search in a new tab.
+        <br><br>
+        Because significance is inferred from Wikidata's records, a handful of relevant places may be missed, and this list is not exhaustive.
         <br><br>
         <a href="privacy.html">Privacy policy</a>
       </div>
@@ -451,16 +469,19 @@
   // ---------- State ----------
   var state = {
     tab: 'nearby',
-    detailId: null,
+    detailId: null,       // Wikipedia article title of the open detail, or null
     coords: null,
     placeName: null,
-    radius: 10000,
-    events: [],
-    stack: [] // navigation stack of {tab, detailId}
+    radiusMiles: 5,
+    dateFilter: 'any',    // any | recent | mid | old
+    searchQuery: '',
+    allEvents: [],         // full fetched+enriched list for the current location/radius
+    events: [],             // currently visible (filtered) list
+    stack: []
   };
 
-  var SETTINGS_KEY = 'tpih_settings_v1';
-  var HISTORY_KEY = 'tpih_history_v1';
+  var SETTINGS_KEY = 'tpih_settings_v2';
+  var HISTORY_KEY = 'tpih_history_v2';
 
   function loadSettings(){
     try{
@@ -468,9 +489,9 @@
       return {
         theme: s.theme || 'light',
         fontScale: s.fontScale || 1,
-        radius: s.radius || 10000
+        radiusMiles: s.radiusMiles || 5
       };
-    }catch(e){ return {theme:'light', fontScale:1, radius:10000}; }
+    }catch(e){ return {theme:'light', fontScale:1, radiusMiles:5}; }
   }
   function saveSettings(s){
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
@@ -483,9 +504,9 @@
   }
   function addToHistory(item){
     var list = loadHistory();
-    list = list.filter(function(x){ return x.pageid !== item.pageid; });
+    list = list.filter(function(x){ return x.title !== item.title; });
     list.unshift({
-      pageid: item.pageid, title: item.title, thumb: item.thumb || null,
+      title: item.title, thumb: item.thumb || null,
       viewedAt: Date.now()
     });
     saveHistory(list);
@@ -494,7 +515,7 @@
   var THEME_COLORS = {light:'#F1E9D8', sepia:'#E9DCC0', dark:'#1C1712'};
 
   var settings = loadSettings();
-  state.radius = settings.radius;
+  state.radiusMiles = settings.radiusMiles;
   applyTheme(settings.theme);
   applyFontScale(settings.fontScale);
 
@@ -518,11 +539,10 @@
     document.querySelectorAll('#radiusSeg button').forEach(function(b){
       b.classList.toggle('active', parseInt(b.dataset.radiusOpt) === parseInt(v));
     });
-    var label = (v/1000) + ' km around you';
-    document.getElementById('radiusDesc').textContent = label;
-    settings.radius = v; saveSettings(settings);
+    document.getElementById('radiusDesc').textContent = v + ' mi around you';
+    settings.radiusMiles = v; saveSettings(settings);
   }
-  applyDefaultRadius(state.radius);
+  applyDefaultRadius(state.radiusMiles);
 
   // ---------- Routing (device back support) ----------
   function currentRouteState(){
@@ -531,7 +551,7 @@
   function pushRoute(next){
     state.tab = next.tab !== undefined ? next.tab : state.tab;
     state.detailId = next.detailId !== undefined ? next.detailId : null;
-    history.pushState(currentRouteState(), '', '#' + state.tab + (state.detailId ? '/' + state.detailId : ''));
+    history.pushState(currentRouteState(), '', '#' + state.tab + (state.detailId ? '/' + encodeURIComponent(state.detailId) : ''));
     render();
   }
   window.addEventListener('popstate', function(e){
@@ -590,10 +610,29 @@
   var ICON_EXTERNAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>';
   var ICON_BOOKMARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>';
 
-  // ---------- Geolocation + data fetching ----------
-  function metersLabel(m){
-    if(m < 1000) return Math.round(m) + ' m away';
-    return (m/1000).toFixed(1) + ' km away';
+  // ---------- Helpers ----------
+  function milesLabel(mi){
+    if(mi < 0.1) return 'steps away';
+    return mi.toFixed(mi < 10 ? 1 : 0) + ' mi away';
+  }
+  function yearOf(isoDate){
+    if(!isoDate) return null;
+    var m = /^(-?\d+)-/.exec(isoDate);
+    return m ? parseInt(m[1], 10) : null;
+  }
+  function dateLabel(isoDate){
+    var y = yearOf(isoDate);
+    if(y === null) return '';
+    return y < 0 ? (Math.abs(y) + ' BCE') : String(y);
+  }
+  function bucketFor(isoDate){
+    var y = yearOf(isoDate);
+    if(y === null) return null;
+    var nowYear = new Date().getFullYear();
+    var age = nowYear - y;
+    if(age < 50) return 'recent';
+    if(age <= 100) return 'mid';
+    return 'old';
   }
 
   function showStatus(html){
@@ -601,8 +640,11 @@
     document.getElementById('markerList').innerHTML = '';
   }
 
+  // ---------- Geolocation ----------
   function startLocating(){
     document.getElementById('radiusRow').style.display = 'none';
+    document.getElementById('dateRow').style.display = 'none';
+    document.getElementById('searchRow').style.display = 'none';
     document.getElementById('heroEyebrow').textContent = 'Locating you';
     document.getElementById('heroPlace').textContent = 'Finding where you are\u2026';
     document.getElementById('heroSub').textContent = 'We use your device location to look up recorded history nearby.';
@@ -643,7 +685,7 @@
     reverseGeocode();
     document.getElementById('radiusRow').style.display = 'flex';
     document.querySelectorAll('#radiusRow .chip').forEach(function(c){
-      c.classList.toggle('active', parseInt(c.dataset.radius) === state.radius);
+      c.classList.toggle('active', parseInt(c.dataset.radius) === state.radiusMiles);
     });
     fetchNearbyEvents();
   }
@@ -658,7 +700,7 @@
         state.placeName = name || 'your location';
         document.getElementById('heroEyebrow').textContent = 'Nearby history';
         document.getElementById('heroPlace').textContent = state.placeName;
-        document.getElementById('heroSub').textContent = 'Historical places and events recorded near ' + state.placeName + '.';
+        document.getElementById('heroSub').textContent = 'Historically significant places recorded near ' + state.placeName + '.';
       })
       .catch(function(){
         state.placeName = 'your location';
@@ -667,123 +709,167 @@
       });
   }
 
-  // Categories that mark an article as historical in nature. Matched
-  // case-insensitively against each page's (non-hidden) Wikipedia categories.
-  var HISTORY_CATEGORY_RE = /histor|\bbattle|\bsiege|\bwar\b|treaty|massacre|rebellion|revolution|uprising|\bfounded|founding|establishment|monument|memorial|cemetery|graveyard|archaeolog|ancient|prehistoric|colonial|heritage|national register|historic landmark|\bruins\b|fort(?:ress)?\b|\bcastle\b|shipwreck|dynasty|\bempire\b|kingdom|explorer|pioneer|settlement|plantation|slavery|indigenous|native american|tribal|\bmission\b|lighthouse|ghost town|archive|former.*(fort|station|mill)|world war|civil war/i;
+  // ---------- Wikidata query ----------
+  var WDQS_ENDPOINT = 'https://query.wikidata.org/sparql';
 
-  // Given raw geosearch results, fetch each page's categories and keep only
-  // the ones that look historical. Falls back to the unfiltered list if the
-  // category lookup itself fails, so a network hiccup doesn't break Nearby.
-  function filterHistorical(results){
-    var ids = results.map(function(r){ return r.pageid; });
-    var chunks = [];
-    for(var i=0;i<ids.length;i+=50){ chunks.push(ids.slice(i,i+50)); }
+  // Instance-of classes that, on their own, mark a place/thing as historically
+  // notable (battles, historic events, fortifications, archaeological sites...).
+  var HISTORICAL_CLASSES = [
+    'Q178561',    // battle
+    'Q13418847',  // historical event
+    'Q839954',    // archaeological site
+    'Q23413',     // castle
+    'Q57821',     // fortification
+    'Q2751054',   // massacre
+    'Q15243209',  // historic district
+    'Q1197722',   // ghost town
+    'Q852190',    // shipwreck
+    'Q4989906',   // monument
+    'Q5003624'    // memorial
+  ];
 
-    return Promise.all(chunks.map(function(chunk){
-      var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=categories'
-        + '&clshow=!hidden&cllimit=500'
-        + '&pageids=' + chunk.join('|') + '&format=json&origin=*';
-      return fetch(url).then(function(r){ return r.json(); });
-    })).then(function(responses){
-      var catMap = {};
-      responses.forEach(function(data){
-        var pages = (data.query && data.query.pages) || {};
-        Object.keys(pages).forEach(function(id){
-          var cats = (pages[id].categories || []).map(function(c){ return c.title; }).join(' | ');
-          catMap[id] = cats;
-        });
-      });
-      return results.filter(function(ev){
-        return HISTORY_CATEGORY_RE.test(catMap[ev.pageid] || '');
-      });
-    }).catch(function(){
-      return results; // best effort: don't let a failed category fetch empty the list
-    });
+  function buildSparql(lat, lon, radiusKm){
+    var point = 'Point(' + lon + ' ' + lat + ')';
+    var classValues = HISTORICAL_CLASSES.map(function(q){ return 'wd:' + q; }).join(' ');
+    return [
+      'SELECT DISTINCT ?item ?itemDescription ?dist ?date ?articleTitle WHERE {',
+      '  SERVICE wikibase:around {',
+      '    ?item wdt:P625 ?location .',
+      '    bd:serviceParam wikibase:center "'+point+'"^^geo:wktLiteral .',
+      '    bd:serviceParam wikibase:radius "'+radiusKm+'" .',
+      '  }',
+      '  BIND(geof:distance("'+point+'"^^geo:wktLiteral, ?location) AS ?dist)',
+      '  {',
+      '    ?item wdt:P1435 ?heritage .',                 // has a heritage designation
+      '  } UNION {',
+      '    ?item wdt:P31 ?class . VALUES ?class { ' + classValues + ' }',
+      '  } UNION {',
+      '    ?item wdt:P710 ?participant .',                // tied to people/orgs (e.g. battle participants)
+      '  }',
+      '  ?article schema:about ?item ; schema:isPartOf <https://en.wikipedia.org/> ; schema:name ?articleTitle .',
+      '  OPTIONAL { ?item wdt:P585 ?d1 }',                 // point in time
+      '  OPTIONAL { ?item wdt:P571 ?d2 }',                 // inception
+      '  OPTIONAL { ?item wdt:P580 ?d3 }',                 // start time
+      '  BIND(COALESCE(?d1, ?d2, ?d3) AS ?date)',
+      '  SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }',
+      '} ORDER BY ?dist LIMIT 80'
+    ].join('\n');
   }
 
   function fetchNearbyEvents(){
     if(!state.coords) return;
+    document.getElementById('dateRow').style.display = 'none';
+    document.getElementById('searchRow').style.display = 'none';
     showStatus('<div class="status-block"><div class="spinner"></div><p>Searching the historical record\u2026</p></div>');
-    var coordParam = state.coords.lat + '|' + state.coords.lon;
-    var url = 'https://en.wikipedia.org/w/api.php?action=query&list=geosearch'
-      + '&gscoord=' + encodeURIComponent(coordParam)
-      + '&gsradius=' + state.radius
-      + '&gslimit=50&format=json&origin=*';
 
-    fetch(url).then(function(r){ return r.json(); }).then(function(data){
-      var results = (data.query && data.query.geosearch) || [];
-      if(results.length === 0){
-        showStatus(
-          '<div class="status-block">'+
-          '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
-          '<h3>Nothing recorded nearby</h3><p>Try widening the search radius above.</p>'+
-          '</div>'
-        );
-        return;
-      }
-      filterHistorical(results).then(function(histResults){
-        if(histResults.length === 0){
+    var radiusKm = (state.radiusMiles * 1.60934).toFixed(2);
+    var sparql = buildSparql(state.coords.lat, state.coords.lon, radiusKm);
+    var url = WDQS_ENDPOINT + '?query=' + encodeURIComponent(sparql) + '&format=json';
+
+    fetch(url, {headers:{'Accept':'application/sparql-results+json'}})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var rows = (data.results && data.results.bindings) || [];
+        var map = {};
+        rows.forEach(function(b){
+          var title = b.articleTitle && b.articleTitle.value;
+          if(!title) return;
+          if(map[title]){
+            if(!map[title].date && b.date) map[title].date = b.date.value;
+            return;
+          }
+          map[title] = {
+            title: title,
+            description: b.itemDescription ? b.itemDescription.value : '',
+            distMiles: parseFloat(b.dist.value) * 0.621371,
+            date: b.date ? b.date.value : null
+          };
+        });
+        var list = Object.keys(map).map(function(k){ return map[k]; });
+        list.sort(function(a,b2){ return a.distMiles - b2.distMiles; });
+
+        if(list.length === 0){
           showStatus(
             '<div class="status-block">'+
             '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
-            '<h3>Nothing historical nearby</h3><p>There are nearby Wikipedia entries, but none look historically significant. Try widening the search radius above.</p>'+
+            '<h3>Nothing significant nearby</h3><p>No documented historic sites, events, or figures were found in this radius. Try widening it above.</p>'+
             '</div>'
           );
           return;
         }
-        state.events = histResults;
-        showStatus('');
-        renderMarkerList(histResults);
-        fetchThumbnails(histResults);
+        enrichWithExtracts(list).then(function(enriched){
+          state.allEvents = enriched;
+          document.getElementById('dateRow').style.display = 'flex';
+          document.getElementById('searchRow').style.display = 'flex';
+          applyFilters();
+        });
+      }).catch(function(){
+        showStatus(
+          '<div class="status-block">'+
+          '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>'+
+          '<h3>Couldn\'t reach Wikidata</h3><p>Check your connection and try again.</p>'+
+          '<button id="retryFetchBtn">Retry</button>'+
+          '</div>'
+        );
+        var b = document.getElementById('retryFetchBtn');
+        if(b) b.addEventListener('click', fetchNearbyEvents);
       });
-    }).catch(function(){
+  }
+
+  // Batch-fetch Wikipedia extracts + thumbnails for a list of {title,...} objects.
+  function enrichWithExtracts(list){
+    var titles = list.map(function(e){ return e.title; });
+    var chunks = [];
+    for(var i=0;i<titles.length;i+=50){ chunks.push(titles.slice(i,i+50)); }
+    var byTitle = {};
+    list.forEach(function(e){ byTitle[e.title] = e; });
+
+    return Promise.all(chunks.map(function(chunk){
+      var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages'
+        + '&exintro=1&explaintext=1&exchars=180&piprop=thumbnail&pithumbsize=200'
+        + '&redirects=1&titles=' + encodeURIComponent(chunk.join('|')) + '&format=json&origin=*';
+      return fetch(url).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    })).then(function(responses){
+      responses.forEach(function(data){
+        if(!data) return;
+        var pages = (data.query && data.query.pages) || {};
+        Object.keys(pages).forEach(function(id){
+          var p = pages[id];
+          var ev = byTitle[p.title];
+          if(!ev) return;
+          if(p.extract) ev.excerpt = p.extract;
+          if(p.thumbnail && p.thumbnail.source) ev.thumb = p.thumbnail.source;
+        });
+      });
+      return list;
+    });
+  }
+
+  // ---------- Filtering (client-side, no refetch) ----------
+  function applyFilters(){
+    var q = state.searchQuery.trim().toLowerCase();
+    state.events = state.allEvents.filter(function(ev){
+      if(state.dateFilter !== 'any'){
+        if(bucketFor(ev.date) !== state.dateFilter) return false;
+      }
+      if(q){
+        var hay = (ev.title + ' ' + (ev.description||'') + ' ' + (ev.excerpt||'')).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    if(state.events.length === 0){
       showStatus(
         '<div class="status-block">'+
-        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>'+
-        '<h3>Couldn\'t reach Wikipedia</h3><p>Check your connection and try again.</p>'+
-        '<button id="retryFetchBtn">Retry</button>'+
+        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
+        '<h3>No matches</h3><p>Nothing in this radius fits the current filters. Try loosening the date range or search.</p>'+
         '</div>'
       );
-      var b = document.getElementById('retryFetchBtn');
-      if(b) b.addEventListener('click', fetchNearbyEvents);
-    });
-  }
-
-  function renderMarkerList(results){
-    var list = document.getElementById('markerList');
-    list.innerHTML = results.map(function(ev){
-      return '<button class="marker" data-pageid="'+ev.pageid+'" data-title="'+escapeHtml(ev.title)+'">'+
-        '<span class="pin mono">'+metersLabel(ev.dist)+'</span>'+
-        '<div class="m-title">'+escapeHtml(ev.title)+'</div>'+
-        '<div class="m-meta">'+ICON_MAP_PIN+'<span>'+ev.lat.toFixed(3)+'\u00b0, '+ev.lon.toFixed(3)+'\u00b0</span></div>'+
-        '<div class="m-excerpt" id="excerpt-'+ev.pageid+'"></div>'+
-        '</button>';
-    }).join('');
-    list.querySelectorAll('.marker').forEach(function(el){
-      el.addEventListener('click', function(){
-        openDetail(parseInt(el.dataset.pageid), el.dataset.title);
-      });
-    });
-  }
-
-  function fetchThumbnails(results){
-    var ids = results.map(function(r){ return r.pageid; }).join('|');
-    if(!ids) return;
-    var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages'
-      + '&exintro=1&explaintext=1&exchars=180&piprop=thumbnail&pithumbsize=200'
-      + '&pageids=' + encodeURIComponent(ids) + '&format=json&origin=*';
-    fetch(url).then(function(r){ return r.json(); }).then(function(data){
-      var pages = (data.query && data.query.pages) || {};
-      Object.keys(pages).forEach(function(id){
-        var p = pages[id];
-        var ex = document.getElementById('excerpt-'+id);
-        if(ex && p.extract) ex.textContent = p.extract;
-        if(p.thumbnail && p.thumbnail.source){
-          var ev = state.events.find(function(e){ return String(e.pageid) === String(id); });
-          if(ev) ev.thumb = p.thumbnail.source;
-        }
-      });
-    }).catch(function(){});
+      return;
+    }
+    showStatus('');
+    renderMarkerList(state.events);
   }
 
   function escapeHtml(s){
@@ -792,61 +878,76 @@
     });
   }
 
+  function renderMarkerList(results){
+    var list = document.getElementById('markerList');
+    list.innerHTML = results.map(function(ev){
+      var dl = dateLabel(ev.date);
+      return '<button class="marker" data-title="'+escapeHtml(ev.title)+'">'+
+        '<span class="pin mono">'+milesLabel(ev.distMiles)+'</span>'+
+        '<div class="m-title">'+escapeHtml(ev.title)+'</div>'+
+        '<div class="m-meta">'+ICON_CLOCK+'<span>'+(dl ? dl : (ev.description ? escapeHtml(ev.description) : 'Date unknown'))+'</span></div>'+
+        '<div class="m-excerpt">'+escapeHtml(ev.excerpt || ev.description || '')+'</div>'+
+        '</button>';
+    }).join('');
+    list.querySelectorAll('.marker').forEach(function(el){
+      el.addEventListener('click', function(){
+        openDetail(el.dataset.title);
+      });
+    });
+  }
+
   // ---------- Detail view ----------
-  function openDetail(pageid, title){
-    var ev = state.events.find(function(e){ return e.pageid === pageid; }) || {pageid:pageid, title:title};
-    addToHistory({pageid: pageid, title: title, thumb: ev.thumb || null});
-    pushRoute({tab: state.tab, detailId: pageid});
+  function openDetail(title){
+    var ev = state.allEvents.find(function(e){ return e.title === title; }) || {title: title};
+    addToHistory({title: title, thumb: ev.thumb || null});
+    pushRoute({tab: state.tab, detailId: title});
   }
 
   var detailCache = {};
 
-  function renderDetail(pageid){
+  function renderDetail(title){
     var container = document.getElementById('detailContent');
-    var cached = detailCache[pageid];
+    var cached = detailCache[title];
     if(cached){
       paintDetail(container, cached);
       return;
     }
-    var fallbackTitle = (state.events.find(function(e){ return e.pageid === pageid; }) || {}).title
-      || (loadHistory().find(function(h){ return h.pageid === pageid; }) || {}).title
-      || 'Loading\u2026';
     container.innerHTML =
-      '<div class="status-block" style="margin-top:60px;"><div class="spinner"></div><p>Retrieving the story of '+escapeHtml(fallbackTitle)+'\u2026</p></div>';
+      '<div class="status-block" style="margin-top:60px;"><div class="spinner"></div><p>Retrieving the story of '+escapeHtml(title)+'\u2026</p></div>';
 
     var url = 'https://en.wikipedia.org/w/api.php?action=query&prop=extracts|pageimages|info|coordinates'
-      + '&exintro=1&explaintext=1&piprop=original&inprop=url'
-      + '&pageids=' + pageid + '&format=json&origin=*';
+      + '&exintro=1&explaintext=1&piprop=original&inprop=url&redirects=1'
+      + '&titles=' + encodeURIComponent(title) + '&format=json&origin=*';
     fetch(url).then(function(r){ return r.json(); }).then(function(data){
-      var page = data.query && data.query.pages && data.query.pages[pageid];
-      if(!page){ throw new Error('not found'); }
+      var pages = (data.query && data.query.pages) || {};
+      var page = pages[Object.keys(pages)[0]];
+      if(!page || page.missing !== undefined){ throw new Error('not found'); }
       var record = {
-        pageid: pageid,
         title: page.title,
         extract: page.extract || 'No summary is available for this place yet.',
         image: page.original ? page.original.source : null,
         url: page.fullurl,
         coords: (page.coordinates && page.coordinates[0]) || null
       };
-      detailCache[pageid] = record;
-      // only paint if still on this detail
-      if(state.detailId === pageid){ paintDetail(container, record); }
+      detailCache[title] = record;
+      if(state.detailId === title){ paintDetail(container, record); }
     }).catch(function(){
-      if(state.detailId !== pageid) return;
+      if(state.detailId !== title) return;
       container.innerHTML =
         '<div class="status-block" style="margin-top:60px;">'+
         '<h3>Couldn\'t load this place</h3><p>Check your connection and try again.</p>'+
         '<button id="retryDetailBtn">Retry</button></div>';
       var b = document.getElementById('retryDetailBtn');
-      if(b) b.addEventListener('click', function(){ delete detailCache[pageid]; renderDetail(pageid); });
+      if(b) b.addEventListener('click', function(){ delete detailCache[title]; renderDetail(title); });
     });
   }
 
   function paintDetail(container, record){
     var savedList = loadHistory();
-    var savedItem = savedList.find(function(h){ return h.pageid === record.pageid; });
-    var originEv = state.events.find(function(e){ return e.pageid === record.pageid; });
-    var distLine = originEv ? metersLabel(originEv.dist) : '';
+    var savedItem = savedList.find(function(h){ return h.title === record.title; });
+    var originEv = state.allEvents.find(function(e){ return e.title === record.title; });
+    var distLine = originEv ? milesLabel(originEv.distMiles) : '';
+    var dl = originEv ? dateLabel(originEv.date) : '';
     var videoUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(record.title + ' history');
 
     container.innerHTML =
@@ -856,6 +957,7 @@
       + '<h2>'+escapeHtml(record.title)+'</h2>'
       + '<div class="detail-meta-row">'
       + (distLine ? '<span>'+ICON_MAP_PIN+distLine+'</span>' : '')
+      + (dl ? '<span class="mono">'+ICON_CLOCK+dl+'</span>' : '')
       + (record.coords ? '<span class="mono">'+record.coords.lat.toFixed(3)+'\u00b0, '+record.coords.lon.toFixed(3)+'\u00b0</span>' : '')
       + '</div>'
       + '<div class="rule"></div>'
@@ -870,7 +972,7 @@
     var saveBtn = document.getElementById('saveBtn');
     saveBtn.classList.toggle('saved', !!savedItem);
     saveBtn.addEventListener('click', function(){
-      addToHistory({pageid: record.pageid, title: record.title, thumb: record.image});
+      addToHistory({title: record.title, thumb: record.image});
       saveBtn.classList.add('saved');
       document.getElementById('saveLabel').textContent = 'Saved';
     });
@@ -892,14 +994,14 @@
     wrap.innerHTML = list.map(function(h){
       var when = new Date(h.viewedAt);
       var whenStr = when.toLocaleDateString(undefined, {month:'short', day:'numeric'}) + ' \u00b7 ' + when.toLocaleTimeString(undefined, {hour:'numeric', minute:'2-digit'});
-      return '<div class="hist-item" data-pageid="'+h.pageid+'" data-title="'+escapeHtml(h.title)+'">'
+      return '<div class="hist-item" data-title="'+escapeHtml(h.title)+'">'
         + (h.thumb ? '<img class="thumb" src="'+h.thumb+'" alt="">' : '<div class="thumb"></div>')
         + '<div><div class="ht-title">'+escapeHtml(h.title)+'</div><div class="ht-when">'+whenStr+'</div></div>'
         + '</div>';
     }).join('');
     wrap.querySelectorAll('.hist-item').forEach(function(el){
       el.addEventListener('click', function(){
-        pushRoute({tab:'history', detailId: parseInt(el.dataset.pageid)});
+        pushRoute({tab:'history', detailId: el.dataset.title});
       });
     });
   }
@@ -923,7 +1025,7 @@
     b.addEventListener('click', function(){
       var v = parseInt(b.dataset.radiusOpt);
       applyDefaultRadius(v);
-      state.radius = v;
+      state.radiusMiles = v;
       document.querySelectorAll('#radiusRow .chip').forEach(function(c){
         c.classList.toggle('active', parseInt(c.dataset.radius) === v);
       });
@@ -936,12 +1038,28 @@
     c.addEventListener('click', function(){
       document.querySelectorAll('#radiusRow .chip').forEach(function(x){ x.classList.remove('active'); });
       c.classList.add('active');
-      state.radius = parseInt(c.dataset.radius);
+      state.radiusMiles = parseInt(c.dataset.radius);
       fetchNearbyEvents();
     });
   });
   document.getElementById('refreshBtn').addEventListener('click', function(){
     if(state.coords) fetchNearbyEvents(); else startLocating();
+  });
+
+  // ---------- Date filter chips ----------
+  document.querySelectorAll('#dateRow .chip').forEach(function(c){
+    c.addEventListener('click', function(){
+      document.querySelectorAll('#dateRow .chip').forEach(function(x){ x.classList.remove('active'); });
+      c.classList.add('active');
+      state.dateFilter = c.dataset.datefilter;
+      applyFilters();
+    });
+  });
+
+  // ---------- Live search ----------
+  document.getElementById('searchInput').addEventListener('input', function(e){
+    state.searchQuery = e.target.value;
+    applyFilters();
   });
 
   // ---------- Init ----------
